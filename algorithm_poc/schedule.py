@@ -69,7 +69,7 @@ def get_hours_bound(comps, population):
     minimum = 0
     maximum = 7*24
     for dna in population:
-        _, _, hrs, _ = get_fitness_vals(comps, dna, ftp)
+        _, _, hrs, _, _ = get_fitness_vals(comps, dna, ftp)
         minimum = hrs if minimum > hrs else minimum
         maximum = hrs if maximum < hrs else maximum
     return minimum, maximum
@@ -83,6 +83,7 @@ def get_fitness_vals(comps, dna, freetimepref):
   """
   DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
   occupied = {day: [] for day in DAYS}
+  hours = {day: 0 for day in DAYS}
   course_clash = 0
   ftp_clash = 0
   totalHours = 0
@@ -94,6 +95,7 @@ def get_fitness_vals(comps, dna, freetimepref):
       start = int(time['hours']['start'])
       end = int(time['hours']['end'])
       totalHours += end - start
+      hours[time['day']] += end - start
       for hr in range(start, end):
         if hr in occupied[time['day']]:
           course_clash += 1
@@ -101,8 +103,14 @@ def get_fitness_vals(comps, dna, freetimepref):
           ftp_clash += 1
         occupied[time['day']].append(hr)
   days = len([day for day in DAYS if occupied[day]])
+  if numpy.count_nonzero(hours.values()) == 1:
+    variance = 0
+  else:
+    avg = sum(hours.values())
+    avg /= numpy.count_nonzero(hours.values())
+    variance = sum([(hours[day] - avg) ** 2 if hours[day] > 0 else 0 for day in DAYS]) / (numpy.count_nonzero(hours.values()) - 1)
 
-  return course_clash, days, totalHours, ftp_clash
+  return course_clash, days, totalHours, ftp_clash, variance
 
 # evaluate for each param
 day_table = {1: 100, 2: 100, 3: 100, 4: 50, 5: 0}
@@ -111,6 +119,7 @@ day_table = {1: 100, 2: 100, 3: 100, 4: 50, 5: 0}
 clash_value = lambda x: max([-13.7*exp(-0.01*x*60)+113.6*exp(-0.02*x*60), 0])
 day_value = lambda x: day_table[x]
 hr_value = lambda x: (HOUR_UPPER-x)*1.0/(HOUR_UPPER - HOUR_LOWER) * 100
+diff_value = lambda x: 0.25*x*x-10.25*x+100
 
 def fitness(comps, dna):
   """
@@ -124,8 +133,8 @@ def fitness(comps, dna):
   DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
   ftp = {day: [18, 19, 20, 21, 8, 9, 10] for day in DAYS}
 
-  course_clash, day, hr, ftp_clash = get_fitness_vals(comps, dna, ftp)
-  return clash_value(course_clash) + day_value(day) + hr_value(hr) * 0.0 + clash_value(ftp_clash)
+  course_clash, day, hr, ftp_clash, var = get_fitness_vals(comps, dna, ftp)
+  return clash_value(course_clash) + day_value(day) + hr_value(hr) * 0.0 + clash_value(ftp_clash) + diff_value(var)
 
 # GA algorithm
 
@@ -209,7 +218,7 @@ if __name__ == "__main__":
     try:
       max_fit = max(weighted_population, key=lambda pair: pair[1])
       fits.append(get_fitness_vals(comps, max_fit[0], ftp))
-      mf = (0,0,0,0)
+      mf = (0,0,0,0,0)
       for ind in weighted_population:
         mf = tuple(x + y for x, y in izip(mf, get_fitness_vals(comps, ind[0], ftp)))
       mean_fits.append(mf)
@@ -247,5 +256,6 @@ if __name__ == "__main__":
   pyplot.plot(x,[pair[1] for pair in mean_fits], label='number of day')
   pyplot.plot(x,[pair[2] for pair in mean_fits], label='total hours')
   pyplot.plot(x,[pair[3] for pair in mean_fits], label='ftp clash hour')
+  pyplot.plot(x,[pair[4] for pair in mean_fits], label='variance')
   pyplot.legend()
   pyplot.show()
