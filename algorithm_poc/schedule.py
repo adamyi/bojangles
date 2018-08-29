@@ -16,6 +16,7 @@ import matplotlib.pyplot as pyplot
 import numpy
 
 from itertools import izip
+from tqdm import tqdm
 
 exp = numpy.exp
 
@@ -214,7 +215,7 @@ if __name__ == "__main__":
   DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
   ftp = {day: [18, 19, 20, 21, 8, 9, 10] for day in DAYS}
 
-  for generation in xrange(GENERATIONS):
+  for generation in tqdm(range(GENERATIONS)):
     try:
       max_fit = max(weighted_population, key=lambda pair: pair[1])
       fits.append(get_fitness_vals(comps, max_fit[0], ftp))
@@ -222,10 +223,10 @@ if __name__ == "__main__":
       for ind in weighted_population:
         mf = tuple(x + y for x, y in izip(mf, get_fitness_vals(comps, ind[0], ftp)))
       mean_fits.append(mf)
-      print "Generation %s: max_fit = '%s' fitness: %s" % \
-          (generation, json.dumps(max_fit), fits[-1])
+      # print "Generation %s: max_fit = '%s' fitness: %s" % \
+      #     (generation, json.dumps(max_fit), fits[-1])
     except Exception as e:
-        print e
+        pass #print e
 
 
     weighted_population = [[dna, fitness(comps, dna)] for dna in population]
